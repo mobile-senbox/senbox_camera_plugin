@@ -1,0 +1,26 @@
+name: senbox_camera_plugin
+description: "A new Flutter plugin project."
+version: 1.0.0
+homepage:
+
+environment:
+  sdk: ^3.10.7
+  flutter: '>=3.3.0'
+
+dependencies:
+  cross_file: ^0.3.5+2
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.example.senbox_camera_plugin
+        pluginClass: SenboxCameraPlugin

@@ -1,0 +1,1 @@
+enum SenboxCameraLensDirection { back, front }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:senbox_camera_plugin/senbox_camera_plugin.dart';
 
 import 'review.dart';
+import 'review_video.dart';
 
 void main() {
   runApp(const App());
@@ -174,6 +175,12 @@ class _ExampleState extends State<Example> {
             ? 'Stop video failed.'
             : 'Recorded video: ${file.path}';
       });
+      if (file == null) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => ReviewVideoPage(videoFile: file)),
+      );
     } catch (e) {
       if (!mounted) {
         return;

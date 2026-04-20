@@ -45,6 +45,7 @@ class NativeCameraPlatformView(
 ) : PlatformView {
     companion object {
         private const val DIRECT_CAMERA_PERMISSION_REQUEST_CODE = 46032
+        private const val DIRECT_AUDIO_PERMISSION_REQUEST_CODE = 46033
         private const val TAG = "SenboxNativeCameraView"
     }
 
@@ -75,6 +76,7 @@ class NativeCameraPlatformView(
                 return
             }
             currentDeviceRotation = snapOrientationToSurfaceRotation(orientation)
+            updateVideoCaptureRotation()
         }
     }
     private val canDetectDeviceOrientation = orientationListener.canDetectOrientation()
@@ -238,13 +240,23 @@ class NativeCameraPlatformView(
             return
         }
 
+        val activity = host.first
+        if (!hasAudioPermission(activity)) {
+            requestAudioPermission(activity, result)
+            return
+        }
+
+        val targetRotation = desiredVideoCaptureRotation()
+        videoCapture.targetRotation = targetRotation
         val outputFile = createMediaFile("mp4")
         currentVideoPath = outputFile.absolutePath
         val outputOptions = FileOutputOptions.Builder(outputFile).build()
 
         try {
-            val pendingRecording = videoCapture.output.prepareRecording(host.first, outputOptions)
-            activeRecording = pendingRecording.start(ContextCompat.getMainExecutor(host.first)) { event ->
+            val pendingRecording = videoCapture.output
+                .prepareRecording(activity, outputOptions)
+                .withAudioEnabled()
+            activeRecording = pendingRecording.start(ContextCompat.getMainExecutor(activity)) { event ->
                 if (event is VideoRecordEvent.Finalize) {
                     onVideoRecordFinalize(event)
                 }
@@ -425,7 +437,6 @@ class NativeCameraPlatformView(
         }
 
         if (plugin.getActivity() != null) {
-            showStatus("Requesting camera permission...")
             plugin.requestCameraPermission { isGranted ->
                 container.post {
                     if (isDisposed) {
@@ -448,7 +459,6 @@ class NativeCameraPlatformView(
 
         if (!hasRequestedDirectPermission) {
             hasRequestedDirectPermission = true
-            showStatus("Requesting camera permission...")
             ActivityCompat.requestPermissions(
                 activity,
                 arrayOf(Manifest.permission.CAMERA),
@@ -499,7 +509,9 @@ class NativeCameraPlatformView(
                             )
                         )
                         .build()
-                    val videoCapture = VideoCapture.withOutput(recorder)
+                    val videoCapture = VideoCapture.withOutput(recorder).apply {
+                        targetRotation = desiredVideoCaptureRotation()
+                    }
 
                     provider.unbindAll()
                     boundCamera = null
@@ -605,6 +617,49 @@ class NativeCameraPlatformView(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun hasAudioPermission(activity: Activity): Boolean {
+        return ContextCompat.checkSelfPermission(
+            activity,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestAudioPermission(
+        activity: Activity,
+        result: MethodChannel.Result
+    ) {
+        if (plugin.getActivity() != null) {
+            plugin.requestAudioPermission { isGranted ->
+                container.post {
+                    if (isDisposed) {
+                        return@post
+                    }
+                    if (!isGranted) {
+                        result.error(
+                            "AUDIO_PERMISSION_DENIED",
+                            "Microphone permission is required for video audio.",
+                            null
+                        )
+                        return@post
+                    }
+                    startVideoRecording(result)
+                }
+            }
+            return
+        }
+
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            DIRECT_AUDIO_PERMISSION_REQUEST_CODE
+        )
+        result.error(
+            "AUDIO_PERMISSION_REQUIRED",
+            "Microphone permission requested. Call startVideoRecording() again after granting it.",
+            null
+        )
+    }
+
     private fun findActivity(context: Context): Activity? {
         var currentContext: Context? = context
         while (currentContext is ContextWrapper) {
@@ -634,6 +689,17 @@ class NativeCameraPlatformView(
 
     private fun desiredStillCaptureRotation(): Int {
         return Surface.ROTATION_0
+    }
+
+    private fun desiredVideoCaptureRotation(baseRotation: Int = currentBaseCaptureRotation()): Int {
+        return baseRotation
+    }
+
+    private fun updateVideoCaptureRotation() {
+        try {
+            videoCaptureUseCase?.targetRotation = desiredVideoCaptureRotation()
+        } catch (_: Exception) {
+        }
     }
 
     private fun writeStillCaptureExifOrientation(

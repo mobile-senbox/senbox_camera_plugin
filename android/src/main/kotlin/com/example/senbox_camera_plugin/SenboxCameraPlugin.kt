@@ -23,7 +23,7 @@ class SenboxCameraPlugin :
     companion object {
         private const val CHANNEL_NAME = "senbox_camera_plugin"
         private const val VIEW_TYPE = "senbox_camera_plugin/native_camera_preview"
-        private const val CAMERA_PERMISSION_REQUEST_CODE = 46031
+        private const val MEDIA_PERMISSION_REQUEST_CODE = 46031
     }
 
     private lateinit var channel: MethodChannel
@@ -111,12 +111,13 @@ class SenboxCameraPlugin :
         permissions: Array<out String>,
         grantResults: IntArray
     ): Boolean {
-        if (requestCode != CAMERA_PERMISSION_REQUEST_CODE) {
+        if (requestCode != MEDIA_PERMISSION_REQUEST_CODE) {
             return false
         }
 
         val isGranted =
-            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            grantResults.isNotEmpty() &&
+                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
         val callbacks = permissionCallbacks.toList()
         permissionCallbacks.clear()
         callbacks.forEach { it(isGranted) }
@@ -135,14 +136,39 @@ class SenboxCameraPlugin :
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    fun hasAudioPermission(): Boolean {
+        val currentActivity = activity ?: return false
+        return ContextCompat.checkSelfPermission(
+            currentActivity,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     fun requestCameraPermission(onResult: (Boolean) -> Unit) {
+        requestPermissions(arrayOf(Manifest.permission.CAMERA), onResult)
+    }
+
+    fun requestAudioPermission(onResult: (Boolean) -> Unit) {
+        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), onResult)
+    }
+
+    fun requestPermissions(
+        permissions: Array<String>,
+        onResult: (Boolean) -> Unit
+    ) {
         val currentActivity = activity
         if (currentActivity == null) {
             onResult(false)
             return
         }
 
-        if (hasCameraPermission()) {
+        val allGranted = permissions.all { permission ->
+            ContextCompat.checkSelfPermission(
+                currentActivity,
+                permission
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+        if (allGranted) {
             onResult(true)
             return
         }
@@ -151,8 +177,8 @@ class SenboxCameraPlugin :
         if (permissionCallbacks.size == 1) {
             ActivityCompat.requestPermissions(
                 currentActivity,
-                arrayOf(Manifest.permission.CAMERA),
-                CAMERA_PERMISSION_REQUEST_CODE
+                permissions,
+                MEDIA_PERMISSION_REQUEST_CODE
             )
         }
     }

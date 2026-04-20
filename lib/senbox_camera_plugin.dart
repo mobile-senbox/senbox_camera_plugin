@@ -19,6 +19,10 @@ class SenboxCameraPlugin {
     return XFile(imagePath);
   }
 
+  Future<Map<String, dynamic>?> getLastCaptureDebugInfo() {
+    return SenboxCameraPluginPlatform.instance.getLastCaptureDebugInfo();
+  }
+
   Future<void> switchCameraLens({
     required SenboxCameraLensDirection lensDirection,
   }) {

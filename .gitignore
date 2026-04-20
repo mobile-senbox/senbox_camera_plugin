@@ -14,8 +14,8 @@ ios/.symlinks/
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 
-# MacOS/Linux/Windows
-*.lock
+# MacOS/Linux/Windowshttps://github.com/mobile-senbox/senbox_camera_plugin/settings/access?guidance_task=
+*.lockhttps://github.com/settings/tokens
 
 # IDE
 .idea/

@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.util.Log
 import android.view.Gravity
+import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.View
 import android.widget.FrameLayout
@@ -27,6 +28,7 @@ import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
+import androidx.exifinterface.media.ExifInterface
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -65,6 +67,17 @@ class NativeCameraPlatformView(
     private var isDisposed = false
     private var attachRetryCount = 0
     private var hasRequestedDirectPermission = false
+    private var lastCaptureDebugInfo: Map<String, Any?>? = null
+    private var currentDeviceRotation = Surface.ROTATION_0
+    private val orientationListener = object : OrientationEventListener(context.applicationContext) {
+        override fun onOrientationChanged(orientation: Int) {
+            if (orientation == ORIENTATION_UNKNOWN) {
+                return
+            }
+            currentDeviceRotation = snapOrientationToSurfaceRotation(orientation)
+        }
+    }
+    private val canDetectDeviceOrientation = orientationListener.canDetectOrientation()
 
     init {
         previewView.layoutParams = FrameLayout.LayoutParams(
@@ -89,6 +102,11 @@ class NativeCameraPlatformView(
         container.addView(previewView)
         container.addView(statusView)
 
+        if (canDetectDeviceOrientation) {
+            currentDeviceRotation = currentDisplayRotation()
+            orientationListener.enable()
+        }
+
         plugin.setActiveCameraView(this)
         startWhenReady()
     }
@@ -97,6 +115,7 @@ class NativeCameraPlatformView(
 
     override fun dispose() {
         isDisposed = true
+        orientationListener.disable()
         stopRecordingIfNeeded()
         pendingStopResult?.error(
             "VIEW_DISPOSED",
@@ -133,13 +152,39 @@ class NativeCameraPlatformView(
 
         val outputFile = createMediaFile("jpg")
         val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
-        imageCapture.targetRotation = currentDisplayRotation()
+        val baseRotation = currentBaseCaptureRotation()
+        val targetRotation = desiredStillCaptureRotation()
+        val displayRotation = currentDisplayRotation()
+        imageCapture.targetRotation = targetRotation
 
         imageCapture.takePicture(
             outputOptions,
             ContextCompat.getMainExecutor(host.first),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                    val outputExifOrientation = try {
+                        writeStillCaptureExifOrientation(
+                            outputFile = outputFile,
+                            baseRotation = baseRotation,
+                            targetRotation = targetRotation
+                        )
+                    } catch (e: Exception) {
+                        outputFile.delete()
+                        result.error(
+                            "WRITE_EXIF_FAILED",
+                            "Failed to write image EXIF orientation: ${e.message}",
+                            null
+                        )
+                        return
+                    }
+
+                    lastCaptureDebugInfo = buildCaptureDebugInfo(
+                        outputFile = outputFile,
+                        baseRotation = baseRotation,
+                        displayRotation = displayRotation,
+                        targetRotation = targetRotation,
+                        outputExifOrientation = outputExifOrientation
+                    )
                     result.success(outputFile.absolutePath)
                 }
 
@@ -333,6 +378,8 @@ class NativeCameraPlatformView(
         }
     }
 
+    fun getLastCaptureDebugInfo(): Map<String, Any?>? = lastCaptureDebugInfo
+
     private fun onVideoRecordFinalize(event: VideoRecordEvent.Finalize) {
         val stopResult = pendingStopResult
         val outputPath = currentVideoPath
@@ -441,7 +488,7 @@ class NativeCameraPlatformView(
 
                     val imageCapture = ImageCapture.Builder()
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .setTargetRotation(currentDisplayRotation())
+                        .setTargetRotation(desiredStillCaptureRotation())
                         .build()
 
                     val recorder = Recorder.Builder()
@@ -577,8 +624,106 @@ class NativeCameraPlatformView(
         return File.createTempFile("sbx_${System.currentTimeMillis()}_", ".$extension", outputDir)
     }
 
+    private fun currentBaseCaptureRotation(): Int {
+        return if (canDetectDeviceOrientation) {
+            currentDeviceRotation
+        } else {
+            currentDisplayRotation()
+        }
+    }
+
+    private fun desiredStillCaptureRotation(): Int {
+        return Surface.ROTATION_0
+    }
+
+    private fun writeStillCaptureExifOrientation(
+        outputFile: File,
+        baseRotation: Int,
+        targetRotation: Int
+    ): Int {
+        val orientation = exifOrientationForCapture(
+            baseRotation = baseRotation,
+            targetRotation = targetRotation
+        )
+        val exif = ExifInterface(outputFile.absolutePath)
+        exif.setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
+        exif.saveAttributes()
+        return orientation
+    }
+
+    private fun exifOrientationForCapture(
+        baseRotation: Int,
+        targetRotation: Int
+    ): Int {
+        val clockwiseQuarterTurns = ((baseRotation - targetRotation) + 4) % 4
+        return when (clockwiseQuarterTurns) {
+            0 -> ExifInterface.ORIENTATION_NORMAL
+            1 -> ExifInterface.ORIENTATION_ROTATE_270
+            2 -> ExifInterface.ORIENTATION_ROTATE_180
+            3 -> ExifInterface.ORIENTATION_ROTATE_90
+            else -> ExifInterface.ORIENTATION_UNDEFINED
+        }
+    }
+
     private fun currentDisplayRotation(): Int {
         return previewView.display?.rotation ?: Surface.ROTATION_0
+    }
+
+    private fun snapOrientationToSurfaceRotation(orientation: Int): Int {
+        return when (orientation) {
+            in 45..134 -> Surface.ROTATION_270
+            in 135..224 -> Surface.ROTATION_180
+            in 225..314 -> Surface.ROTATION_90
+            else -> Surface.ROTATION_0
+        }
+    }
+
+    private fun buildCaptureDebugInfo(
+        outputFile: File,
+        baseRotation: Int,
+        displayRotation: Int,
+        targetRotation: Int,
+        outputExifOrientation: Int
+    ): Map<String, Any?> {
+        val normalizedToPortraitUp = targetRotation == Surface.ROTATION_0
+        val usesExifOrientation = outputExifOrientation != ExifInterface.ORIENTATION_NORMAL
+
+        return mapOf(
+            "filePath" to outputFile.absolutePath,
+            "rotationSource" to if (canDetectDeviceOrientation) "device" else "display",
+            "deviceRotation" to currentDeviceRotation,
+            "deviceRotationLabel" to surfaceRotationLabel(currentDeviceRotation),
+            "displayRotation" to displayRotation,
+            "displayRotationLabel" to surfaceRotationLabel(displayRotation),
+            "baseRotation" to baseRotation,
+            "baseRotationLabel" to surfaceRotationLabel(baseRotation),
+            "targetRotation" to targetRotation,
+            "targetRotationLabel" to surfaceRotationLabel(targetRotation),
+            "normalizedToPortraitUp" to normalizedToPortraitUp,
+            "usesExifOrientation" to usesExifOrientation,
+            "outputExifOrientation" to outputExifOrientation,
+            "outputExifOrientationLabel" to exifOrientationLabel(outputExifOrientation)
+        )
+    }
+
+    private fun surfaceRotationLabel(rotation: Int): String {
+        return when (rotation) {
+            Surface.ROTATION_0 -> "portraitUp"
+            Surface.ROTATION_90 -> "landscapeRight"
+            Surface.ROTATION_180 -> "portraitDown"
+            Surface.ROTATION_270 -> "landscapeLeft"
+            else -> "unknown"
+        }
+    }
+
+    private fun exifOrientationLabel(orientation: Int): String {
+        return when (orientation) {
+            ExifInterface.ORIENTATION_NORMAL -> "normal"
+            ExifInterface.ORIENTATION_ROTATE_90 -> "rotate90"
+            ExifInterface.ORIENTATION_ROTATE_180 -> "rotate180"
+            ExifInterface.ORIENTATION_ROTATE_270 -> "rotate270"
+            else -> "undefined"
+        }
     }
 
     private fun buildHostMissingMessage(): String {

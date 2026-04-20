@@ -23,6 +23,20 @@ class MethodChannelSenboxCameraPlugin extends SenboxCameraPluginPlatform {
   }
 
   @override
+  Future<Map<String, dynamic>?> getLastCaptureDebugInfo() async {
+    try {
+      final Map<dynamic, dynamic>? info = await methodChannel
+          .invokeMethod<Map<dynamic, dynamic>>('getLastCaptureDebugInfo');
+      if (info == null) {
+        return null;
+      }
+      return Map<String, dynamic>.from(info);
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  @override
   Future<void> switchCameraLens({
     required SenboxCameraLensDirection lensDirection,
   }) async {

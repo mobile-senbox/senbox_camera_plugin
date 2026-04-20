@@ -2,13 +2,26 @@ import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:senbox_camera_plugin/senbox_camera_plugin.dart';
 
+import 'review.dart';
+
 void main() {
-  runApp(const Example());
+  runApp(const App());
+}
+
+class App extends StatelessWidget {
+  const App({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Example(),
+    );
+  }
 }
 
 class Example extends StatefulWidget {
   const Example({super.key});
-
   @override
   State<Example> createState() => _ExampleState();
 }
@@ -27,6 +40,8 @@ class _ExampleState extends State<Example> {
   Future<void> _takePicture() async {
     try {
       final XFile? file = await _senboxCameraPlugin.takePicture();
+      final Map<String, dynamic>? captureDebugInfo = await _senboxCameraPlugin
+          .getLastCaptureDebugInfo();
       if (!mounted) {
         return;
       }
@@ -36,6 +51,15 @@ class _ExampleState extends State<Example> {
             ? 'Capture failed.'
             : 'Captured image: ${file.path}';
       });
+      if (file == null) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              ReviewPage(imageFile: file, captureDebugInfo: captureDebugInfo),
+        ),
+      );
     } catch (e) {
       if (!mounted) {
         return;
@@ -184,111 +208,102 @@ class _ExampleState extends State<Example> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(title: const Text('CameraX PlatformView Example')),
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: SenboxNativeCameraView(lensDirection: _lensDirection),
-                ),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(title: const Text('CameraX PlatformView Example')),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: SenboxNativeCameraView(lensDirection: _lensDirection),
               ),
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  _status,
-                  style: const TextStyle(color: Colors.white),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                _status,
+                style: const TextStyle(color: Colors.white),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Text(
-                  'Image: ${_capturedImage?.path ?? '-'}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                'Image: ${_capturedImage?.path ?? '-'}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'Zoom: ${_zoomLevel.toStringAsFixed(1)}x',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'Zoom: ${_zoomLevel.toStringAsFixed(1)}x',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'Video: ${_capturedVideo?.path ?? '-'}',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'Video: ${_capturedVideo?.path ?? '-'}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    _ActionButton(label: 'Take Picture', onTap: _takePicture),
-                    _ActionButton(
-                      label: 'Switch Lens',
-                      onTap: _isRecording ? null : _switchCameraLens,
-                    ),
-                    _ActionButton(
-                      label: 'Start Video',
-                      onTap: _isRecording ? null : _startVideoRecording,
-                    ),
-                    _ActionButton(
-                      label: 'Pause Video',
-                      onTap: _isRecording && !_isPaused
-                          ? _pauseVideoRecording
-                          : null,
-                    ),
-                    _ActionButton(
-                      label: 'Resume Video',
-                      onTap: _isRecording && _isPaused
-                          ? _resumeVideoRecording
-                          : null,
-                    ),
-                    _ActionButton(
-                      label: 'Stop Video',
-                      onTap: _isRecording ? _stopVideoRecording : null,
-                    ),
-                    _ActionButton(
-                      label: 'Zoom 1x',
-                      onTap: () => _zoomCamera(1.0),
-                    ),
-                    _ActionButton(
-                      label: 'Zoom 1.5x',
-                      onTap: () => _zoomCamera(1.5),
-                    ),
-                    _ActionButton(
-                      label: 'Zoom 2.0x',
-                      onTap: () => _zoomCamera(2.0),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  _ActionButton(label: 'Take Picture', onTap: _takePicture),
+                  _ActionButton(
+                    label: 'Switch Lens',
+                    onTap: _isRecording ? null : _switchCameraLens,
+                  ),
+                  _ActionButton(
+                    label: 'Start Video',
+                    onTap: _isRecording ? null : _startVideoRecording,
+                  ),
+                  _ActionButton(
+                    label: 'Pause Video',
+                    onTap: _isRecording && !_isPaused
+                        ? _pauseVideoRecording
+                        : null,
+                  ),
+                  _ActionButton(
+                    label: 'Resume Video',
+                    onTap: _isRecording && _isPaused
+                        ? _resumeVideoRecording
+                        : null,
+                  ),
+                  _ActionButton(
+                    label: 'Stop Video',
+                    onTap: _isRecording ? _stopVideoRecording : null,
+                  ),
+                  _ActionButton(
+                    label: 'Zoom 1x',
+                    onTap: () => _zoomCamera(1.0),
+                  ),
+                  _ActionButton(
+                    label: 'Zoom 1.5x',
+                    onTap: () => _zoomCamera(1.5),
+                  ),
+                  _ActionButton(
+                    label: 'Zoom 2.0x',
+                    onTap: () => _zoomCamera(2.0),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

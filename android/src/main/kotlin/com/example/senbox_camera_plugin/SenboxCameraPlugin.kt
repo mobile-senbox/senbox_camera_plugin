@@ -51,6 +51,9 @@ class SenboxCameraPlugin :
             "takePicture" -> withActiveCameraView(result) { cameraView ->
                 cameraView.takePicture(result)
             }
+            "getLastCaptureDebugInfo" -> withActiveCameraView(result) { cameraView ->
+                result.success(cameraView.getLastCaptureDebugInfo())
+            }
             "switchCameraLens" -> withActiveCameraView(result) { cameraView ->
                 val lensDirection = call.argument<String>("lensDirection") ?: "back"
                 cameraView.switchCameraLens(lensDirection, result)

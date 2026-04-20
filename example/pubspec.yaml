@@ -17,6 +17,7 @@ dependencies:
   flutter:
     sdk: flutter
   cross_file: ^0.3.5+2
+  image: ^4.8.0
 
   senbox_camera_plugin:
     # When depending on this package from a real application you should use:

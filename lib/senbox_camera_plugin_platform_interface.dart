@@ -26,6 +26,12 @@ abstract class SenboxCameraPluginPlatform extends PlatformInterface {
     throw UnimplementedError('takePicture() has not been implemented.');
   }
 
+  Future<Map<String, dynamic>?> getLastCaptureDebugInfo() {
+    throw UnimplementedError(
+      'getLastCaptureDebugInfo() has not been implemented.',
+    );
+  }
+
   Future<void> switchCameraLens({
     required SenboxCameraLensDirection lensDirection,
   }) {

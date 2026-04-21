@@ -76,7 +76,7 @@ class NativeCameraPlatformView(
                 return
             }
             currentDeviceRotation = snapOrientationToSurfaceRotation(orientation)
-            updateVideoCaptureRotation()
+            updateCaptureRotation()
         }
     }
     private val canDetectDeviceOrientation = orientationListener.canDetectOrientation()
@@ -165,19 +165,10 @@ class NativeCameraPlatformView(
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                     val outputExifOrientation = try {
-                        writeStillCaptureExifOrientation(
-                            outputFile = outputFile,
-                            baseRotation = baseRotation,
-                            targetRotation = targetRotation
-                        )
+                        val exif = ExifInterface(outputFile.absolutePath)
+                        exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
                     } catch (e: Exception) {
-                        outputFile.delete()
-                        result.error(
-                            "WRITE_EXIF_FAILED",
-                            "Failed to write image EXIF orientation: ${e.message}",
-                            null
-                        )
-                        return
+                        ExifInterface.ORIENTATION_NORMAL
                     }
 
                     lastCaptureDebugInfo = buildCaptureDebugInfo(
@@ -688,46 +679,18 @@ class NativeCameraPlatformView(
     }
 
     private fun desiredStillCaptureRotation(): Int {
-        return Surface.ROTATION_0
+        return currentBaseCaptureRotation()
     }
 
     private fun desiredVideoCaptureRotation(baseRotation: Int = currentBaseCaptureRotation()): Int {
         return baseRotation
     }
 
-    private fun updateVideoCaptureRotation() {
+    private fun updateCaptureRotation() {
         try {
             videoCaptureUseCase?.targetRotation = desiredVideoCaptureRotation()
+            imageCaptureUseCase?.targetRotation = desiredStillCaptureRotation()
         } catch (_: Exception) {
-        }
-    }
-
-    private fun writeStillCaptureExifOrientation(
-        outputFile: File,
-        baseRotation: Int,
-        targetRotation: Int
-    ): Int {
-        val orientation = exifOrientationForCapture(
-            baseRotation = baseRotation,
-            targetRotation = targetRotation
-        )
-        val exif = ExifInterface(outputFile.absolutePath)
-        exif.setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
-        exif.saveAttributes()
-        return orientation
-    }
-
-    private fun exifOrientationForCapture(
-        baseRotation: Int,
-        targetRotation: Int
-    ): Int {
-        val clockwiseQuarterTurns = ((baseRotation - targetRotation) + 4) % 4
-        return when (clockwiseQuarterTurns) {
-            0 -> ExifInterface.ORIENTATION_NORMAL
-            1 -> ExifInterface.ORIENTATION_ROTATE_270
-            2 -> ExifInterface.ORIENTATION_ROTATE_180
-            3 -> ExifInterface.ORIENTATION_ROTATE_90
-            else -> ExifInterface.ORIENTATION_UNDEFINED
         }
     }
 

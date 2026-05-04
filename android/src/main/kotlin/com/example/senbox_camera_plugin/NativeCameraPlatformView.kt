@@ -619,6 +619,11 @@ class NativeCameraPlatformView(
         activity: Activity,
         result: MethodChannel.Result
     ) {
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.RECORD_AUDIO),
+            DIRECT_AUDIO_PERMISSION_REQUEST_CODE
+        )
         if (plugin.getActivity() != null) {
             plugin.requestAudioPermission { isGranted ->
                 container.post {
@@ -639,11 +644,7 @@ class NativeCameraPlatformView(
             return
         }
 
-        ActivityCompat.requestPermissions(
-            activity,
-            arrayOf(Manifest.permission.RECORD_AUDIO),
-            DIRECT_AUDIO_PERMISSION_REQUEST_CODE
-        )
+        
         result.error(
             "AUDIO_PERMISSION_REQUIRED",
             "Microphone permission requested. Call startVideoRecording() again after granting it.",

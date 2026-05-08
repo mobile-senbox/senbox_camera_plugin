@@ -1,5 +1,8 @@
 package com.example.senbox_camera_plugin
 
+import android.content.Context
+import java.io.File
+
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -32,8 +35,10 @@ class SenboxCameraPlugin :
     private var activityBinding: ActivityPluginBinding? = null
     private val permissionCallbacks = mutableListOf<(Boolean) -> Unit>()
     private var activeCameraView: NativeCameraPlatformView? = null
+    private lateinit var applicationContext: Context
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        applicationContext = flutterPluginBinding.applicationContext
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, CHANNEL_NAME)
         channel.setMethodCallHandler(this)
         flutterPluginBinding.platformViewRegistry.registerViewFactory(
@@ -77,6 +82,17 @@ class SenboxCameraPlugin :
             }
             "stopVideoRecording" -> withActiveCameraView(result) { cameraView ->
                 cameraView.stopVideoRecording(result)
+            }
+            "clearCache" -> {
+                try {
+                    val outputDir = File(applicationContext.cacheDir, "senbox_camera_plugin")
+                    if (outputDir.exists()) {
+                        outputDir.deleteRecursively()
+                    }
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("CLEAR_CACHE_FAILED", "Failed to clear cache: ${e.message}", null)
+                }
             }
             else -> result.notImplemented()
         }

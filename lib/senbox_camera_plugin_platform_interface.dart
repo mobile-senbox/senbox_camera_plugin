@@ -59,4 +59,8 @@ abstract class SenboxCameraPluginPlatform extends PlatformInterface {
   Future<String?> stopVideoRecording() {
     throw UnimplementedError('stopVideoRecording() has not been implemented.');
   }
+
+  Future<void> clearCache() {
+    throw UnimplementedError('clearCache() has not been implemented.');
+  }
 }

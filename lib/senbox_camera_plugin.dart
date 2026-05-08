@@ -57,4 +57,8 @@ class SenboxCameraPlugin {
     }
     return XFile(videoPath);
   }
+
+  Future<void> clearCache() {
+    return SenboxCameraPluginPlatform.instance.clearCache();
+  }
 }

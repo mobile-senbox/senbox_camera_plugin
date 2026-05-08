@@ -75,4 +75,9 @@ class MethodChannelSenboxCameraPlugin extends SenboxCameraPluginPlatform {
     final path = await methodChannel.invokeMethod<String>('stopVideoRecording');
     return path;
   }
+
+  @override
+  Future<void> clearCache() async {
+    await methodChannel.invokeMethod<void>('clearCache');
+  }
 }

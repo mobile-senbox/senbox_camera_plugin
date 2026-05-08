@@ -14,6 +14,7 @@ abstract class SenboxCameraNativeController {
   Future<void> resumeVideoRecording();
   Future<double> setZoomLevel({required double zoomLevel});
   Future<XFile?> stopVideoRecording();
+  Future<void> clearCache();
 }
 
 class SenboxNativeCameraControllerImp implements SenboxCameraNativeController {
@@ -95,6 +96,15 @@ class SenboxNativeCameraControllerImp implements SenboxCameraNativeController {
     } catch (e) {
       log('error for stop video recording: $e');
       return null;
+    }
+  }
+
+  @override
+  Future<void> clearCache() async {
+    try {
+      await _platform.clearCache();
+    } catch (e) {
+      log('error for clear cache: $e');
     }
   }
 }

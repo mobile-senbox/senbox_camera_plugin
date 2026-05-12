@@ -5,7 +5,11 @@ import java.io.File
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -94,6 +98,7 @@ class SenboxCameraPlugin :
                     result.error("CLEAR_CACHE_FAILED", "Failed to clear cache: ${e.message}", null)
                 }
             }
+            "openAppSettings" -> result.success(openAppSettings())
             else -> result.notImplemented()
         }
     }
@@ -234,5 +239,27 @@ class SenboxCameraPlugin :
         val callbacks = permissionCallbacks.toList()
         permissionCallbacks.clear()
         callbacks.forEach { it(false) }
+    }
+
+    private fun openAppSettings(): Boolean {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", applicationContext.packageName, null)
+            addCategory(Intent.CATEGORY_DEFAULT)
+        }
+
+        return try {
+            val currentActivity = activity
+            if (currentActivity != null) {
+                currentActivity.startActivity(intent)
+            } else {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                applicationContext.startActivity(intent)
+            }
+            true
+        } catch (e: ActivityNotFoundException) {
+            false
+        } catch (e: Exception) {
+            false
+        }
     }
 }

@@ -63,4 +63,8 @@ abstract class SenboxCameraPluginPlatform extends PlatformInterface {
   Future<void> clearCache() {
     throw UnimplementedError('clearCache() has not been implemented.');
   }
+
+  Future<bool> openAppSettings() {
+    throw UnimplementedError('openAppSettings() has not been implemented.');
+  }
 }

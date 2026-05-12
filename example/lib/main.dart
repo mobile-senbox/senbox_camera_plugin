@@ -1,5 +1,6 @@
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:senbox_camera_plugin/senbox_camera_plugin.dart';
 
 import 'review.dart';
@@ -34,6 +35,7 @@ class _ExampleState extends State<Example> {
   double _zoomLevel = 1.0;
   bool _isRecording = false;
   bool _isPaused = false;
+  bool _showAudioPermissionSettingsButton = false;
   String _status = 'Ready';
   XFile? _capturedImage;
   XFile? _capturedVideo;
@@ -109,16 +111,63 @@ class _ExampleState extends State<Example> {
       setState(() {
         _isRecording = true;
         _isPaused = false;
+        _showAudioPermissionSettingsButton = false;
         _status = 'Video recording started.';
+      });
+    } on PlatformException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      if (e.code == 'AUDIO_PERMISSION_DENIED') {
+        setState(() {
+          _showAudioPermissionSettingsButton = true;
+          _status =
+              'Bạn chưa cấp quyền audio. Hãy cấp quyền Microphone cho app.';
+        });
+        _showAudioPermissionDeniedMessage();
+        return;
+      }
+      setState(() {
+        _showAudioPermissionSettingsButton = false;
+        _status = 'Start video error: $e';
       });
     } catch (e) {
       if (!mounted) {
         return;
       }
       setState(() {
+        _showAudioPermissionSettingsButton = false;
         _status = 'Start video error: $e';
       });
     }
+  }
+
+  Future<void> _openAppPermissionSettings() async {
+    final bool didOpenSettings = await _senboxCameraPlugin.openAppSettings();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _status = didOpenSettings
+          ? 'Đã mở cài đặt app. Hãy cấp quyền Microphone rồi quay lại Start Video.'
+          : 'Không thể mở cài đặt app. Hãy mở Settings và cấp quyền Microphone cho app.';
+    });
+  }
+
+  void _showAudioPermissionDeniedMessage() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Bạn chưa cấp quyền audio. Hãy cấp quyền Microphone cho app.',
+          ),
+          action: SnackBarAction(
+            label: 'Mở quyền',
+            onPressed: _openAppPermissionSettings,
+          ),
+        ),
+      );
   }
 
   Future<void> _pauseVideoRecording() async {
@@ -279,6 +328,11 @@ class _ExampleState extends State<Example> {
                     label: 'Start Video',
                     onTap: _isRecording ? null : _startVideoRecording,
                   ),
+                  if (_showAudioPermissionSettingsButton)
+                    _ActionButton(
+                      label: 'Mở quyền audio',
+                      onTap: _openAppPermissionSettings,
+                    ),
                   _ActionButton(
                     label: 'Pause Video',
                     onTap: _isRecording && !_isPaused

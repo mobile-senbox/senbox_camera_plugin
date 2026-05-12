@@ -80,4 +80,12 @@ class MethodChannelSenboxCameraPlugin extends SenboxCameraPluginPlatform {
   Future<void> clearCache() async {
     await methodChannel.invokeMethod<void>('clearCache');
   }
+
+  @override
+  Future<bool> openAppSettings() async {
+    final bool? didOpenSettings = await methodChannel.invokeMethod<bool>(
+      'openAppSettings',
+    );
+    return didOpenSettings ?? false;
+  }
 }

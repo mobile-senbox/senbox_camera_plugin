@@ -61,4 +61,8 @@ class SenboxCameraPlugin {
   Future<void> clearCache() {
     return SenboxCameraPluginPlatform.instance.clearCache();
   }
+
+  Future<bool> openAppSettings() {
+    return SenboxCameraPluginPlatform.instance.openAppSettings();
+  }
 }

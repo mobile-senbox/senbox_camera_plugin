@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:senbox_camera_plugin/senbox_camera_plugin.dart';
 
+import 'package:media_kit/media_kit.dart';
+
 import 'review.dart';
 import 'review_video.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
   runApp(const App());
 }
 

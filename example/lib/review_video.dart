@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 class ReviewVideoPage extends StatefulWidget {
   const ReviewVideoPage({super.key, required this.videoFile});
@@ -14,13 +15,15 @@ class ReviewVideoPage extends StatefulWidget {
 }
 
 class _ReviewVideoPageState extends State<ReviewVideoPage> {
-  late final VideoPlayerController _controller;
+  late final Player _player;
+  late final VideoController _controller;
   late final Future<_VideoReviewData> _reviewFuture = _loadReviewData();
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.file(File(widget.videoFile.path));
+    _player = Player();
+    _controller = VideoController(_player);
   }
 
   Future<_VideoReviewData> _loadReviewData() async {
@@ -30,34 +33,41 @@ class _ReviewVideoPageState extends State<ReviewVideoPage> {
       throw StateError('Recorded video file was not found.');
     }
 
-    await _controller.initialize();
-    await _controller.setLooping(true);
-    await _controller.play();
+    await _player.open(Media(widget.videoFile.path));
+    await _player.setPlaylistMode(PlaylistMode.loop);
 
-    final Size dimensions = _controller.value.size;
+    // Wait slightly for metadata to load
+    for (int i = 0; i < 20; i++) {
+      if (_player.state.duration != Duration.zero && (_player.state.width ?? 0) > 0) {
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    final Duration duration = _player.state.duration;
+    final double width = (_player.state.width ?? 0).toDouble();
+    final double height = (_player.state.height ?? 0).toDouble();
+
     return _VideoReviewData(
       filePath: widget.videoFile.path,
       fileSizeBytes: stat.size,
-      duration: _controller.value.duration,
-      width: dimensions.width,
-      height: dimensions.height,
+      duration: duration,
+      width: width,
+      height: height,
     );
   }
 
   Future<void> _togglePlayback() async {
-    if (!_controller.value.isInitialized) {
+    if (_player.state.playing) {
+      await _player.pause();
       return;
     }
-    if (_controller.value.isPlaying) {
-      await _controller.pause();
-      return;
-    }
-    await _controller.play();
+    await _player.play();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _player.dispose();
     super.dispose();
   }
 
@@ -136,93 +146,99 @@ class _ReviewVideoPageState extends State<ReviewVideoPage> {
               const SizedBox(height: 16),
               _SectionCard(
                 title: 'Preview',
-                child: ValueListenableBuilder<VideoPlayerValue>(
-                  valueListenable: _controller,
-                  builder: (context, value, _) {
-                    final bool isInitialized = value.isInitialized;
-                    final double aspectRatio =
-                        isInitialized && value.aspectRatio > 0
-                        ? value.aspectRatio
-                        : (review.width > 0 && review.height > 0
-                              ? review.width / review.height
-                              : 9 / 16);
+                child: StreamBuilder<bool>(
+                  stream: _player.stream.playing,
+                  initialData: _player.state.playing,
+                  builder: (context, playingSnapshot) {
+                    final isPlaying = playingSnapshot.data ?? false;
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        GestureDetector(
-                          onTap: isInitialized ? _togglePlayback : null,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
-                            child: Container(
-                              color: Colors.black,
-                              child: AspectRatio(
-                                aspectRatio: aspectRatio,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    if (isInitialized) VideoPlayer(_controller),
-                                    Container(color: Colors.black26),
-                                    Center(
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius: BorderRadius.circular(
-                                            999,
+                    return StreamBuilder<Duration>(
+                      stream: _player.stream.position,
+                      initialData: _player.state.position,
+                      builder: (context, positionSnapshot) {
+                        final position = positionSnapshot.data ?? Duration.zero;
+                        final double aspectRatio = review.width > 0 && review.height > 0
+                                ? review.width / review.height
+                                : 9 / 16;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            GestureDetector(
+                              onTap: _togglePlayback,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(18),
+                                child: Container(
+                                  color: Colors.black,
+                                  child: AspectRatio(
+                                    aspectRatio: aspectRatio,
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        Video(controller: _controller),
+                                        if (!isPlaying) Container(color: Colors.black26),
+                                        if (!isPlaying) Center(
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: Colors.black54,
+                                              borderRadius: BorderRadius.circular(999),
+                                            ),
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(14),
+                                              child: Icon(
+                                                Icons.play_arrow_rounded,
+                                                color: Colors.white,
+                                                size: 32,
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(14),
-                                          child: Icon(
-                                            value.isPlaying
-                                                ? Icons.pause_rounded
-                                                : Icons.play_arrow_rounded,
-                                            color: Colors.white,
-                                            size: 32,
-                                          ),
-                                        ),
-                                      ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: VideoProgressIndicator(
-                            _controller,
-                            allowScrubbing: true,
-                            padding: EdgeInsets.zero,
-                            colors: const VideoProgressColors(
-                              playedColor: Color(0xFF8FD3FF),
-                              bufferedColor: Colors.white24,
-                              backgroundColor: Colors.white10,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            FilledButton.tonalIcon(
-                              onPressed: isInitialized ? _togglePlayback : null,
-                              icon: Icon(
-                                value.isPlaying
-                                    ? Icons.pause_rounded
-                                    : Icons.play_arrow_rounded,
+                            const SizedBox(height: 12),
+                            SliderTheme(
+                              data: const SliderThemeData(
+                                trackHeight: 4,
+                                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+                                overlayShape: RoundSliderOverlayShape(overlayRadius: 14),
+                                activeTrackColor: Color(0xFF8FD3FF),
+                                inactiveTrackColor: Colors.white10,
+                                thumbColor: Color(0xFF8FD3FF),
                               ),
-                              label: Text(value.isPlaying ? 'Pause' : 'Play'),
+                              child: Slider(
+                                value: position.inMilliseconds.toDouble().clamp(0, review.duration.inMilliseconds.toDouble()),
+                                max: review.duration.inMilliseconds.toDouble() > 0 ? review.duration.inMilliseconds.toDouble() : 1,
+                                onChanged: (value) {
+                                  _player.seek(Duration(milliseconds: value.toInt()));
+                                },
+                              ),
                             ),
-                            const Spacer(),
-                            Text(
-                              '${_formatDuration(value.position)} / ${_formatDuration(review.duration)}',
-                              style: const TextStyle(color: Colors.white70),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                FilledButton.tonalIcon(
+                                  onPressed: _togglePlayback,
+                                  icon: Icon(
+                                    isPlaying
+                                        ? Icons.pause_rounded
+                                        : Icons.play_arrow_rounded,
+                                  ),
+                                  label: Text(isPlaying ? 'Pause' : 'Play'),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${_formatDuration(position)} / ${_formatDuration(review.duration)}',
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     );
                   },
                 ),

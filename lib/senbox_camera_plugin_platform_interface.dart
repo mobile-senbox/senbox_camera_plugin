@@ -38,6 +38,18 @@ abstract class SenboxCameraPluginPlatform extends PlatformInterface {
     throw UnimplementedError('switchCameraLens() has not been implemented.');
   }
 
+  Future<bool> checkAudioPermission() {
+    throw UnimplementedError(
+      'checkAudioPermission() has not been implemented.',
+    );
+  }
+
+  Future<bool> requestAudioPermission() {
+    throw UnimplementedError(
+      'requestAudioPermission() has not been implemented.',
+    );
+  }
+
   Future<void> startVideoRecording() {
     throw UnimplementedError('startVideoRecording() has not been implemented.');
   }

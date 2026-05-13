@@ -47,6 +47,22 @@ class MethodChannelSenboxCameraPlugin extends SenboxCameraPluginPlatform {
   }
 
   @override
+  Future<bool> checkAudioPermission() async {
+    final bool? isGranted = await methodChannel.invokeMethod<bool>(
+      'checkAudioPermission',
+    );
+    return isGranted ?? false;
+  }
+
+  @override
+  Future<bool> requestAudioPermission() async {
+    final bool? isGranted = await methodChannel.invokeMethod<bool>(
+      'requestAudioPermission',
+    );
+    return isGranted ?? false;
+  }
+
+  @override
   Future<void> startVideoRecording() async {
     await methodChannel.invokeMethod<void>('startVideoRecording');
   }

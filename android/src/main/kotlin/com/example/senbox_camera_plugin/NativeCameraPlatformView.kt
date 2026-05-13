@@ -45,7 +45,6 @@ class NativeCameraPlatformView(
 ) : PlatformView {
     companion object {
         private const val DIRECT_CAMERA_PERMISSION_REQUEST_CODE = 46032
-        private const val DIRECT_AUDIO_PERMISSION_REQUEST_CODE = 46033
         private const val TAG = "SenboxNativeCameraView"
     }
 
@@ -233,7 +232,11 @@ class NativeCameraPlatformView(
 
         val activity = host.first
         if (!hasAudioPermission(activity)) {
-            requestAudioPermission(activity, result)
+            result.error(
+                "AUDIO_PERMISSION_REQUIRED",
+                "Microphone permission is required. Call requestAudioPermission() before startVideoRecording().",
+                null
+            )
             return
         }
 
@@ -613,43 +616,6 @@ class NativeCameraPlatformView(
             activity,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestAudioPermission(
-        activity: Activity,
-        result: MethodChannel.Result
-    ) {
-        ActivityCompat.requestPermissions(
-            activity,
-            arrayOf(Manifest.permission.RECORD_AUDIO),
-            DIRECT_AUDIO_PERMISSION_REQUEST_CODE
-        )
-        if (plugin.getActivity() != null) {
-            plugin.requestAudioPermission { isGranted ->
-                container.post {
-                    if (isDisposed) {
-                        return@post
-                    }
-                    if (!isGranted) {
-                        result.error(
-                            "AUDIO_PERMISSION_DENIED",
-                            "Microphone permission is required for video audio.",
-                            null
-                        )
-                        return@post
-                    }
-                    startVideoRecording(result)
-                }
-            }
-            return
-        }
-
-        
-        result.error(
-            "AUDIO_PERMISSION_REQUIRED",
-            "Microphone permission requested. Call startVideoRecording() again after granting it.",
-            null
-        )
     }
 
     private fun findActivity(context: Context): Activity? {

@@ -9,6 +9,8 @@ abstract class SenboxCameraNativeController {
   Future<void> switchCameraLens({
     required SenboxCameraLensDirection lensDirection,
   });
+  Future<bool> checkAudioPermission();
+  Future<bool> requestAudioPermission();
   Future<void> startVideoRecording();
   Future<void> pauseVideoRecording();
   Future<void> resumeVideoRecording();
@@ -45,6 +47,26 @@ class SenboxNativeCameraControllerImp implements SenboxCameraNativeController {
       await _platform.switchCameraLens(lensDirection: lensDirection);
     } catch (e) {
       log('error for switch camera lens: $e');
+    }
+  }
+
+  @override
+  Future<bool> checkAudioPermission() async {
+    try {
+      return await _platform.checkAudioPermission();
+    } catch (e) {
+      log('error for check audio permission: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> requestAudioPermission() async {
+    try {
+      return await _platform.requestAudioPermission();
+    } catch (e) {
+      log('error for request audio permission: $e');
+      return false;
     }
   }
 

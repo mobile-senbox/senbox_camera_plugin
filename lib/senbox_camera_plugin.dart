@@ -31,6 +31,14 @@ class SenboxCameraPlugin {
     );
   }
 
+  Future<bool> checkAudioPermission() {
+    return SenboxCameraPluginPlatform.instance.checkAudioPermission();
+  }
+
+  Future<bool> requestAudioPermission() {
+    return SenboxCameraPluginPlatform.instance.requestAudioPermission();
+  }
+
   Future<void> startVideoRecording() {
     return SenboxCameraPluginPlatform.instance.startVideoRecording();
   }

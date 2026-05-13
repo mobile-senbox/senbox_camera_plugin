@@ -104,6 +104,25 @@ class _ExampleState extends State<Example> {
 
   Future<void> _startVideoRecording() async {
     try {
+      final bool hasAudioPermission = await _senboxCameraPlugin
+          .checkAudioPermission();
+      if (!hasAudioPermission) {
+        final bool isAudioPermissionGranted = await _senboxCameraPlugin
+            .requestAudioPermission();
+        if (!mounted) {
+          return;
+        }
+        if (!isAudioPermissionGranted) {
+          setState(() {
+            _showAudioPermissionSettingsButton = true;
+            _status =
+                'Bạn chưa cấp quyền audio. Hãy cấp quyền Microphone cho app.';
+          });
+          _showAudioPermissionDeniedMessage();
+          return;
+        }
+      }
+
       await _senboxCameraPlugin.startVideoRecording();
       if (!mounted) {
         return;
@@ -118,7 +137,8 @@ class _ExampleState extends State<Example> {
       if (!mounted) {
         return;
       }
-      if (e.code == 'AUDIO_PERMISSION_DENIED') {
+      if (e.code == 'AUDIO_PERMISSION_DENIED' ||
+          e.code == 'AUDIO_PERMISSION_REQUIRED') {
         setState(() {
           _showAudioPermissionSettingsButton = true;
           _status =

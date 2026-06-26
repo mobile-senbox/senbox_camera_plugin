@@ -5,7 +5,10 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.Matrix
 import android.util.Log
 import android.view.Gravity
 import android.view.OrientationEventListener
@@ -163,21 +166,21 @@ class NativeCameraPlatformView(
             ContextCompat.getMainExecutor(host.first),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                    val outputExifOrientation = try {
-                        val exif = ExifInterface(outputFile.absolutePath)
-                        exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-                    } catch (e: Exception) {
-                        ExifInterface.ORIENTATION_NORMAL
-                    }
-
-                    lastCaptureDebugInfo = buildCaptureDebugInfo(
-                        outputFile = outputFile,
-                        baseRotation = baseRotation,
-                        displayRotation = displayRotation,
-                        targetRotation = targetRotation,
-                        outputExifOrientation = outputExifOrientation
-                    )
-                    result.success(outputFile.absolutePath)
+                    val fileToProcess = outputFile
+                    Thread {
+                        val finalExifOrientation = rotateImageIfRequired(fileToProcess)
+                        host.first.runOnUiThread {
+                            if (isDisposed) return@runOnUiThread
+                            lastCaptureDebugInfo = buildCaptureDebugInfo(
+                                outputFile = fileToProcess,
+                                baseRotation = baseRotation,
+                                displayRotation = displayRotation,
+                                targetRotation = targetRotation,
+                                outputExifOrientation = finalExifOrientation
+                            )
+                            result.success(fileToProcess.absolutePath)
+                        }
+                    }.start()
                 }
 
                 override fun onError(exception: ImageCaptureException) {
@@ -627,6 +630,61 @@ class NativeCameraPlatformView(
             currentContext = currentContext.baseContext
         }
         return null
+    }
+
+    private fun rotateImageIfRequired(imageFile: File): Int {
+        val exif = try {
+            ExifInterface(imageFile.absolutePath)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read EXIF: ${e.message}", e)
+            return ExifInterface.ORIENTATION_NORMAL
+        }
+        val orientation = exif.getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL
+        )
+
+        val degrees = when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270
+            else -> 0
+        }
+
+        if (degrees == 0) {
+            return orientation
+        }
+
+        try {
+            val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath) ?: return orientation
+            val matrix = Matrix().apply { postRotate(degrees.toFloat()) }
+            val rotatedBitmap = Bitmap.createBitmap(
+                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+            )
+            
+            imageFile.outputStream().use { out ->
+                rotatedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+            }
+            
+            if (bitmap != rotatedBitmap) {
+                bitmap.recycle()
+            }
+            rotatedBitmap.recycle()
+
+            val newExif = ExifInterface(imageFile.absolutePath)
+            newExif.setAttribute(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL.toString()
+            )
+            newExif.saveAttributes()
+            return ExifInterface.ORIENTATION_NORMAL
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "OutOfMemoryError when rotating image", e)
+            System.gc()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error rotating image: ${e.message}", e)
+        }
+        return orientation
     }
 
     private fun createMediaFile(extension: String): File {

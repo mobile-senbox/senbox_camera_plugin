@@ -38,7 +38,8 @@ class _ReviewVideoPageState extends State<ReviewVideoPage> {
 
     // Wait slightly for metadata to load
     for (int i = 0; i < 20; i++) {
-      if (_player.state.duration != Duration.zero && (_player.state.width ?? 0) > 0) {
+      if (_player.state.duration != Duration.zero &&
+          (_player.state.width ?? 0) > 0) {
         break;
       }
       await Future.delayed(const Duration(milliseconds: 100));
@@ -151,16 +152,15 @@ class _ReviewVideoPageState extends State<ReviewVideoPage> {
                   initialData: _player.state.playing,
                   builder: (context, playingSnapshot) {
                     final isPlaying = playingSnapshot.data ?? false;
-
                     return StreamBuilder<Duration>(
                       stream: _player.stream.position,
                       initialData: _player.state.position,
                       builder: (context, positionSnapshot) {
                         final position = positionSnapshot.data ?? Duration.zero;
-                        final double aspectRatio = review.width > 0 && review.height > 0
-                                ? review.width / review.height
-                                : 9 / 16;
-
+                        final double aspectRatio =
+                            review.width > 0 && review.height > 0
+                            ? review.width / review.height
+                            : 9 / 16;
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -176,23 +176,26 @@ class _ReviewVideoPageState extends State<ReviewVideoPage> {
                                       fit: StackFit.expand,
                                       children: [
                                         Video(controller: _controller),
-                                        if (!isPlaying) Container(color: Colors.black26),
-                                        if (!isPlaying) Center(
-                                          child: DecoratedBox(
-                                            decoration: BoxDecoration(
-                                              color: Colors.black54,
-                                              borderRadius: BorderRadius.circular(999),
-                                            ),
-                                            child: const Padding(
-                                              padding: EdgeInsets.all(14),
-                                              child: Icon(
-                                                Icons.play_arrow_rounded,
-                                                color: Colors.white,
-                                                size: 32,
+                                        if (!isPlaying)
+                                          Container(color: Colors.black26),
+                                        if (!isPlaying)
+                                          Center(
+                                            child: DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(14),
+                                                child: Icon(
+                                                  Icons.play_arrow_rounded,
+                                                  color: Colors.white,
+                                                  size: 32,
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
                                       ],
                                     ),
                                   ),
@@ -203,17 +206,30 @@ class _ReviewVideoPageState extends State<ReviewVideoPage> {
                             SliderTheme(
                               data: const SliderThemeData(
                                 trackHeight: 4,
-                                thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
-                                overlayShape: RoundSliderOverlayShape(overlayRadius: 14),
+                                thumbShape: RoundSliderThumbShape(
+                                  enabledThumbRadius: 6,
+                                ),
+                                overlayShape: RoundSliderOverlayShape(
+                                  overlayRadius: 14,
+                                ),
                                 activeTrackColor: Color(0xFF8FD3FF),
                                 inactiveTrackColor: Colors.white10,
                                 thumbColor: Color(0xFF8FD3FF),
                               ),
                               child: Slider(
-                                value: position.inMilliseconds.toDouble().clamp(0, review.duration.inMilliseconds.toDouble()),
-                                max: review.duration.inMilliseconds.toDouble() > 0 ? review.duration.inMilliseconds.toDouble() : 1,
+                                value: position.inMilliseconds.toDouble().clamp(
+                                  0,
+                                  review.duration.inMilliseconds.toDouble(),
+                                ),
+                                max:
+                                    review.duration.inMilliseconds.toDouble() >
+                                        0
+                                    ? review.duration.inMilliseconds.toDouble()
+                                    : 1,
                                 onChanged: (value) {
-                                  _player.seek(Duration(milliseconds: value.toInt()));
+                                  _player.seek(
+                                    Duration(milliseconds: value.toInt()),
+                                  );
                                 },
                               ),
                             ),

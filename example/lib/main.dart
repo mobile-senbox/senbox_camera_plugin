@@ -59,7 +59,7 @@ class _ExampleState extends State<Example> {
             : 'Captured image: ${file.path}';
       });
       if (file == null) {
-        return;
+        return;                
       }
       await Navigator.of(context).push(
         MaterialPageRoute(

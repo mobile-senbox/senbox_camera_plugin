@@ -16,11 +16,14 @@ import android.view.Surface
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.util.Rational
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.ViewPort
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
@@ -515,12 +518,27 @@ class NativeCameraPlatformView(
                     previewUseCase = preview
                     imageCaptureUseCase = imageCapture
                     videoCaptureUseCase = videoCapture
+
+                    val useCaseGroupBuilder = UseCaseGroup.Builder()
+                        .addUseCase(preview)
+                        .addUseCase(imageCapture)
+                        .addUseCase(videoCapture)
+
+                    val viewPort = previewView.viewPort ?: if (previewView.width > 0 && previewView.height > 0) {
+                        ViewPort.Builder(
+                            Rational(previewView.width, previewView.height),
+                            currentDisplayRotation()
+                        ).setScaleType(ViewPort.FILL_CENTER).build()
+                    } else null
+
+                    if (viewPort != null) {
+                        useCaseGroupBuilder.setViewPort(viewPort)
+                    }
+
                     val camera = provider.bindToLifecycle(
                         lifecycleOwner,
                         selector,
-                        preview,
-                        imageCapture,
-                        videoCapture
+                        useCaseGroupBuilder.build()
                     )
                     boundCamera = camera
                     applyRequestedZoom(camera)
